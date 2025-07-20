@@ -18,8 +18,8 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.use(
   cors({
-    origin: "http://localhost:3000", // Your frontend URL
-    credentials: true, // Enable cookies
+    origin: "http://localhost:3000",
+    credentials: true,
   })
 );
 app.use(morgan("combined"));
