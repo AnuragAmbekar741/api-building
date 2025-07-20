@@ -1,0 +1,43 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+// Simple User model for basic authentication
+model User {
+    id           String    @id @default(cuid())
+    firstName    String
+    lastName     String?
+    email        String    @unique
+    password     String // hashed password
+    isGoogleAuth Boolean   @default(false)
+    lastLoginAt  DateTime?
+    createdAt    DateTime  @default(now())
+    updatedAt    DateTime  @updatedAt
+
+    // Relations
+    refreshTokens RefreshToken[]
+
+    @@map("users")
+}
+
+// Refresh tokens for JWT rotation
+model RefreshToken {
+    id        String   @id @default(cuid())
+    token     String   @unique
+    expiresAt DateTime
+    isRevoked Boolean  @default(false)
+
+    // Relations
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("refresh_tokens")
+}
