@@ -28,7 +28,7 @@ export class JWTTokens {
   }
 
   private static get accessTokenExpiresIn(): string {
-    return process.env.JWT_ACCESS_EXPIRES_IN || "15m";
+    return process.env.JWT_ACCESS_EXPIRES_IN || "1m";
   }
 
   private static get refreshTokenExpiresIn(): string {

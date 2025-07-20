@@ -1,141 +1,176 @@
 import { Request, Response } from "express";
-import { Password } from "@/utils/password";
-import { JWTTokens } from "@/utils/token";
-import { UserService } from "@/services/user.services";
-import { AuthService } from "@/services/token.services";
+import { AuthService } from "@/services/auth.service";
+import { RefreshTokenService } from "@/services/refresh-token.service";
 import { Cookies } from "@/utils/cookies";
+import { AuthRequest } from "@/middleware/auth";
+import { UserService } from "@/services/user.service";
 
 export class AuthController {
-  // Register a new user
+  //register new user
   static async register(req: Request, res: Response) {
-    const { email, password, firstName, lastName } = req.body;
-    if (!email || !password || !firstName || !lastName) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    const existingUser = await UserService.findUniqueEmail(email);
-    if (existingUser) {
-      return res.status(400).json({ error: "User already exists" });
-    }
-
-    const hashedPassword = await Password.hash(password);
-    const user = await UserService.createUser({
-      email,
-      password: hashedPassword,
-      firstName,
-      lastName,
-    });
-
-    const accessToken = JWTTokens.generateAccessToken({
-      userId: user.id,
-      email: user.email,
-    });
-
-    const refreshToken = JWTTokens.generateRefreshToken({
-      userId: user.id,
-      email: user.email,
-    });
-
-    await AuthService.saveRefreshToken(
-      refreshToken,
-      user.id,
-      new Date(Date.now() + 1000 * 60 * 60 * 24 * 7)
-    );
-
-    Cookies.setRefreshToken(res, refreshToken, 1000 * 60 * 60 * 24 * 7);
-
-    return res.status(201).json({ user, accessToken });
-  }
-
-  // Login a user
-  static async login(req: Request, res: Response) {
-    const { email, password } = req?.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    const user = await UserService.findUniqueEmail(email);
-    if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const isPasswordValid = await Password.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const accessToken = JWTTokens.generateAccessToken({
-      userId: user.id,
-      email: user.email,
-    });
-
-    const refreshToken = JWTTokens.generateRefreshToken({
-      userId: user.id,
-      email: user.email,
-    });
-
-    await AuthService.saveRefreshToken(
-      refreshToken,
-      user.id,
-      new Date(Date.now() + 1000 * 60 * 60 * 24 * 7)
-    );
-
-    Cookies.setRefreshToken(res, refreshToken, 1000 * 60 * 60 * 24 * 7);
-
-    return res.status(200).json({ user, accessToken });
-  }
-
-  // Refresh a user's access token
-  static async refreshToken(req: Request, res: Response) {
-    const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken) {
-      console.log("No refresh token provided");
-      return res.status(401).json({ error: "No refresh token provided" });
-    }
-
-    let payload;
-
     try {
-      payload = JWTTokens.verifyRefreshToken(refreshToken);
+      const { email, password, firstName, lastName } = req.body;
+
+      // Validation
+      if (!email || !password || !firstName || !lastName) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          required: ["email", "password", "firstName", "lastName"],
+        });
+      }
+
+      if (password.length < 8) {
+        return res.status(400).json({
+          error: "Password must be at least 8 characters long",
+        });
+      }
+
+      // Check if user exists
+      const existingUser = await UserService.findByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ error: "User already exists" });
+      }
+
+      // Register user
+      const { user, tokens } = await AuthService.register({
+        email,
+        password,
+        firstName,
+        lastName,
+      });
+
+      // Set refresh token in cookie
+      Cookies.setRefreshToken(res, tokens.refreshToken);
+
+      return res.status(201).json({
+        message: "Registration successful",
+        user,
+        accessToken: tokens.accessToken,
+      });
     } catch (error) {
-      return res.status(401).json({ error: "Invalid refresh token" });
+      console.error("Registration error:", error);
+      return res.status(500).json({ error: "Internal server error" });
     }
-
-    const user = await UserService.findById(payload.userId);
-    if (!user) {
-      return res.status(401).json({ error: "User not found" });
-    }
-
-    const tokenRecord = await AuthService.findValidRefreshToken(refreshToken);
-    if (!tokenRecord) {
-      return res.status(401).json({ error: "Invalid refresh token" });
-    }
-
-    const newAccessToken = JWTTokens.generateAccessToken({
-      userId: user.id,
-      email: user.email,
-    });
-
-    await AuthService.deleteRefreshToken(refreshToken);
-
-    Cookies.clearRefreshTokenCookie(res);
-
-    const newRefreshToken = JWTTokens.generateRefreshToken({
-      userId: user.id,
-      email: user.email,
-    });
-
-    await AuthService.saveRefreshToken(
-      newRefreshToken,
-      user.id,
-      AuthService.getRefreshTokenExpiration()
-    );
-
-    Cookies.setRefreshToken(res, newRefreshToken, 1000 * 60 * 60 * 24 * 7);
-
-    return res.status(200).json({ accessToken: newAccessToken });
   }
 
-  //Logout a user
+  /**
+   * ✅ Simplified login
+   */
+  static async login(req: Request, res: Response) {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password required" });
+      }
+
+      // Login user
+      const { user, tokens } = await AuthService.login(email, password);
+
+      // Set refresh token in cookie
+      Cookies.setRefreshToken(res, tokens.refreshToken);
+
+      return res.status(200).json({
+        message: "Login successful",
+        user,
+        accessToken: tokens.accessToken,
+      });
+    } catch (error) {
+      if (error.message === "Invalid credentials") {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      console.error("Login error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  /**
+   * ✅ Simplified refresh token
+   */
+  static async refreshToken(req: Request, res: Response) {
+    try {
+      const refreshToken = req.cookies.refreshToken;
+
+      if (!refreshToken) {
+        return res.status(401).json({
+          error: "Refresh token required",
+          code: "MISSING_REFRESH_TOKEN",
+        });
+      }
+
+      // Refresh tokens
+      const tokens = await AuthService.refreshToken(refreshToken);
+
+      // Set new refresh token in cookie
+      Cookies.setRefreshToken(res, tokens.refreshToken);
+
+      return res.status(200).json({
+        message: "Tokens refreshed successfully",
+        accessToken: tokens.accessToken,
+      });
+    } catch (error) {
+      // Clear invalid cookie
+      Cookies.clearRefreshToken(res);
+
+      if (
+        error.message.includes("Invalid") ||
+        error.message.includes("expired")
+      ) {
+        return res.status(401).json({
+          error: "Invalid or expired refresh token",
+          code: "INVALID_REFRESH_TOKEN",
+        });
+      }
+
+      console.error("Refresh error:", error);
+      return res.status(500).json({ error: "Token refresh failed" });
+    }
+  }
+
+  /**
+   * ✅ Simplified logout
+   */
+  static async logout(req: Request, res: Response) {
+    try {
+      const refreshToken = req.cookies.refreshToken;
+
+      if (refreshToken) {
+        await RefreshTokenService.revoke(refreshToken);
+      }
+
+      Cookies.clearRefreshToken(res);
+
+      return res.status(200).json({ message: "Logout successful" });
+    } catch (error) {
+      console.error("Logout error:", error);
+
+      // Still clear cookie
+      Cookies.clearRefreshToken(res);
+      return res.status(200).json({ message: "Logout completed" });
+    }
+  }
+
+  /**
+   * ✅ Logout all devices
+   */
+  static async logoutAll(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      await RefreshTokenService.revokeAllForUser(userId);
+      Cookies.clearRefreshToken(res);
+
+      return res.status(200).json({
+        message: "Logged out from all devices",
+      });
+    } catch (error) {
+      console.error("Logout all error:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
 }

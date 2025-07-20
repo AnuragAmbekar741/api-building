@@ -3,13 +3,13 @@ import { prisma } from "@/utils/prisma";
 import { User } from "@prisma/client";
 
 export class UserService {
-  static async findByEmail(email: string) {
+  static async findByEmail(email: string): Promise<User | null> {
     return await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     });
   }
 
-  static async findById(id: string) {
+  static async findById(id: string): Promise<User | null> {
     return await prisma.user.findUnique({
       where: { id },
     });
@@ -24,9 +24,14 @@ export class UserService {
     });
   }
 
-  static async findUniqueEmail(email: string) {
-    return await prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
+  static async findUniqueEmail(email: string): Promise<User | null> {
+    return this.findByEmail(email); // Use existing method
+  }
+
+  static async updateLastLogin(userId: string): Promise<User> {
+    return await prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date() },
     });
   }
 }
