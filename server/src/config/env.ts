@@ -29,6 +29,13 @@ export const config = {
   cors: {
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
   },
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    callbackUrl:
+      process.env.GOOGLE_CALLBACK_URL ||
+      "http://localhost:5050/api/auth/google/callback",
+  },
 };
 
 // Validate required environment variables
@@ -36,6 +43,8 @@ const requiredEnvVars = [
   "DATABASE_URL",
   "JWT_ACCESS_SECRET",
   "JWT_REFRESH_SECRET",
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
 ];
 
 for (const envVar of requiredEnvVars) {

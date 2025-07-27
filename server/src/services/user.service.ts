@@ -24,6 +24,13 @@ export class UserService {
     });
   }
 
+  static async updateUser(userId: string, data: Partial<User>): Promise<User> {
+    return await prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+  }
+
   static async findUniqueEmail(email: string): Promise<User | null> {
     return this.findByEmail(email); // Use existing method
   }

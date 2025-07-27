@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
+import passport from "@/config/passport"; // Import passport config
 import authRouter from "@/routes/auth.router";
 import userRouter from "@/routes/user.router";
 
@@ -21,6 +22,10 @@ app.use(morgan("combined"));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser() as any);
+
+// Initialize Passport - stateless configuration
+app.use(passport.initialize());
+// No passport.session() needed for stateless approach
 
 // Health check
 app.get("/health", (req, res) => {

@@ -90,6 +90,22 @@ export class AuthService {
   }
 
   /**
+   * Google OAuth login - generates tokens for authenticated Google user
+   */
+  static async googleLogin(user: User): Promise<AuthResponse> {
+    // Update last login
+    await UserService.updateLastLogin(user.id);
+
+    // Generate tokens using the same flow as regular login
+    const tokens = await this.generateTokenPair(user.id, user.email);
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = user;
+
+    return { user: userWithoutPassword, tokens };
+  }
+
+  /**
    * Refresh token rotation
    */
   static async refreshToken(oldToken: string): Promise<TokenPair> {

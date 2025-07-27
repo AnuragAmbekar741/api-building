@@ -4,6 +4,7 @@ import { RefreshTokenService } from "@/services/refresh-token.service";
 import { Cookies } from "@/utils/cookies";
 import { AuthRequest } from "@/middleware/auth";
 import { UserService } from "@/services/user.service";
+import { User } from "@prisma/client";
 
 export class AuthController {
   //register new user
@@ -82,6 +83,36 @@ export class AuthController {
 
       console.error("Login error:", error);
       return res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
+  /**
+   * ✅ Google OAuth callback handler - completely stateless
+   */
+  static async googleCallback(req: Request, res: Response) {
+    try {
+      const user = req.user as User;
+
+      if (!user) {
+        return res.redirect(
+          `${process.env.FRONTEND_URL}/auth/callback?error=Authentication failed`
+        );
+      }
+
+      // Generate tokens using the same flow as regular login
+      const { tokens } = await AuthService.googleLogin(user);
+
+      // Set refresh token in cookie
+      Cookies.setRefreshToken(res, tokens.refreshToken);
+
+      // Redirect to frontend with access token
+      const redirectUrl = `${process.env.FRONTEND_URL}/auth/callback?token=${tokens.accessToken}`;
+      return res.redirect(redirectUrl);
+    } catch (error) {
+      console.error("Google callback error:", error);
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/auth/callback?error=Authentication failed`
+      );
     }
   }
 
