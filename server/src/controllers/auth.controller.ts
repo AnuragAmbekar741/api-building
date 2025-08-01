@@ -186,6 +186,8 @@ export class AuthController {
    * ✅ Logout all devices
    */
   static async logoutAll(req: AuthRequest, res: Response) {
+    const user = req.user as { userId: string; email: string }; // ← type assertion
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
     try {
       const userId = req.user?.userId;
 

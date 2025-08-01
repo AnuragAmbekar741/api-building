@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { RequestHandler, Router } from "express";
 import { AuthController } from "@/controllers/auth.controller";
 import { authenticateToken } from "@/middleware/auth";
 import passport from "@/config/passport";
@@ -31,6 +31,10 @@ router.get(
 );
 
 // Protected routes
-router.post("/logout-all", authenticateToken, AuthController.logoutAll);
+router.post(
+  "/logout-all",
+  authenticateToken,
+  AuthController.logoutAll as RequestHandler
+);
 
 export default router;

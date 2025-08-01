@@ -11,7 +11,7 @@ passport.use(
       clientSecret: config.google.clientSecret,
       callbackURL: config.google.callbackUrl,
     },
-    async (profile, done) => {
+    async (accessToken, refreshToken, profile, done) => {
       try {
         const email = profile.emails?.[0]?.value;
         const firstName = profile.name?.givenName;

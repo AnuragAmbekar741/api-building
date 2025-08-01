@@ -14,7 +14,11 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: config.cors.origin,
+    origin: [
+      "http://localhost:3001", // Your frontend URL
+      "http://localhost:5173", // Alternative Vite port
+      config.cors.origin,
+    ],
     credentials: true,
   })
 );
